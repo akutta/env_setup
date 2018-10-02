@@ -1,0 +1,82 @@
+---
+- include: ansible.yml
+
+- include: mac.yml
+  when: ansible_os_family == 'Darwin'
+
+
+  # Ugly hack because touch mode in the file module is stupid
+- name: ensure .gitconfig
+  copy:
+    dest=~/.gitconfig
+    content=""
+    mode=0644
+    force=no
+
+- template: "src={{item.src}} dest={{item.dest}}"
+  with_items:
+    - {src: vimrc, dest: ~/.vimrc}
+
+- name: create vundle file directory
+  file: path=~/.vim/bundle state=directory recurse=yes
+
+- name: Clone vundle
+  git: repo=https://github.com/VundleVim/Vundle.vim dest=~/.vim/bundle/Vundle.vim update=yes
+
+- name: Install Vim plugins
+  command: vim +PluginInstall +qall
+
+- name: Install youcompleteme
+  command: ./install.py chdir=~/.vim/bundle/YouCompleteMe creates=~/.vim/bundle/YouCompleteMe/third_party/ycmd/yum_core.so
+
+- name: Install rvm public key
+  command: gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+  args:
+    creates: ~/.gnupg
+
+- name: Install rvm
+  shell: curl -sSL https://get.rvm.io | bash -s stable
+  args:
+    creates: ~/.rvm
+
+- name: Check if bash profile exists
+  stat:
+    path: ~/.bash_profile
+  register: bashprofile
+
+- name: Install bash profile
+  template: "src={{item.src}} dest={{item.dest}}"
+  with_items:
+    - {src: bash_profile.j2, dest: ~/.bash_profile}
+  when:
+    - bashprofile.stat.exists == false
+
+- git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    scope: global
+  with_dict: {
+    'alias.st': status,
+    'alias.ci': commit,
+    'alias.br': branch,
+    'alias.co': checkout,
+    'alias.amend': 'commit --amend',
+    'alias.ff': 'pull --ff-only --tags',
+    'alias.gp': 'push origin HEAD',
+    'alias.update': 'submodule update --init --recursive',
+    'url.git@github.com:.insteadOf': 'https://github.com/'
+  }
+
+- stat: path=~/.ssh/id_rsa
+  register: ssh_rsa
+
+- name: generate new RSA key if doesn't exist
+  command: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -q -N ""
+  when: ssh_rsa.stat.exists == False
+
+- name: add key to ssh-agent
+  command: ssh-add -K ~/.ssh/id_rsa
+
+- name: inform user of updating github
+  command: echo "Make sure to update your GitHub Keys with appropriate ssh keys"
+  when: ssh_rsa.stat.exists == False

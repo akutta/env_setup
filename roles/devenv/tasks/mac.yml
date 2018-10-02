@@ -1,0 +1,55 @@
+---
+- name: update homebrew installation
+  homebrew: update_homebrew=yes
+
+- name: install homebrew packages
+  homebrew: "name={{item.name}} install_options={{item.options}} state=present"
+  with_items:
+    - name: bash
+      options: ''
+    - name: gnu-getopt
+      options: ''
+    - name: openssl
+      options: ''
+    - name: vim
+      options: '--override-system-vim'
+    - name: macvim
+      options: ''
+    - name: git
+      options: ''
+    - name: bash-completion
+      options: ''
+    - name: kerl
+      options: ''
+    - name: go
+      options: ''
+    - name: glide
+      options: ''
+    - name: wget
+      options: ''
+    - name: cmake
+      options: ''
+    - name: python
+      options: ''
+    - name: nvm
+      options: ''
+    - name: awsebcli
+      options: ''
+    - name: awscli
+      options: ''
+    - name: rebar
+      options: ''
+    - name: rbenv
+      options: ''
+    - name: gpg
+      options: ''
+
+- name: install homebrew casks
+  homebrew_cask: "name={{item}} install_options='appdir=/Applications' state=present"
+  ignore_errors: True
+  with_items:
+    - dropbox
+    - 1password
+    - slack
+    - iterm2
+    - visual-studio-code

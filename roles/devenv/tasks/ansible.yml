@@ -1,0 +1,46 @@
+---
+- name: assert existence of dynamic inventory directory
+  become: True
+  file:
+    path: /etc/ansible
+    state: directory
+    owner: root
+
+- name: check for aws dynamic inventory files
+  stat:
+    path: "{{ item }}"
+  register: di_check
+  with_items:
+  - /etc/ansible/ec2.py
+  - /etc/ansible/ec2.ini
+
+- name: make these results useful
+  set_fact:
+    di_map: "{{ di_map|default({}) | combine({ item.item: item.stat.exists })}}"
+  with_items: "{{ di_check.results }}"
+
+- name: install aws dynamic inventory script
+  become: True
+  get_url:
+    url: "{{ ec2_dynamic_inventory_base }}/ec2.py"
+    dest: /etc/ansible/ec2.py
+    owner: "{{ ansible_user }}"
+    mode: 0755
+  when: not di_map['/etc/ansible/ec2.py']
+
+- name: install aws dynamic inventory config
+  become: True
+  copy:
+    mode: 0644
+    owner: "{{ ansible_user }}"
+    dest: /etc/ansible/ec2.ini
+    src: etc_ansible_ec2.ini
+  when: not di_map['/etc/ansible/ec2.ini']
+
+- name: assert that we're configured to use dynamic inventory
+  lineinfile:
+    dest: ansible.cfg
+    line: inventory = /etc/ansible/ec2.py
+    state: present
+    regexp: inventory.*hosts
+    backrefs: yes
